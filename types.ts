@@ -72,9 +72,21 @@ export interface AIPersonality {
   solutionOriented?: boolean;
 }
 
+// SAAS Updates: User & Subscription Types
+export type SubscriptionTier = 'FREE' | 'PREMIUM';
+
 export interface UserProfile {
+  id: string;
+  email: string;
   name: string;
   joinDate: string; // ISO Date string
+  avatar?: string;
+  subscriptionTier: SubscriptionTier;
+  stats: {
+    streak: number;
+    totalPrayers: number;
+    xp: number;
+  }
 }
 
 export interface Achievement {

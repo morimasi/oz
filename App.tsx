@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, createContext } from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AuthScreen from './components/AuthScreen';
 import BottomNav from './components/BottomNav';
 import PrayerTracker from './components/PrayerTracker';
 import Journal from './components/Journal';
@@ -10,42 +12,24 @@ import Quran from './components/Quran';
 import AudioPlayer from './components/AudioPlayer';
 import QuietCorner from './components/QuietCorner';
 import SpiritualCorner from './components/SpiritualCorner';
-import { Tab, PrayerTimes, UserProfile, AudioPlayerContextType } from './types';
+import { Tab, PrayerTimes, AudioPlayerContextType } from './types';
 import { getPrayerTimes } from './services/prayerTimeService';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
+import { Loader2 } from 'lucide-react';
 
 export const AppContext = createContext<AudioPlayerContextType | null>(null);
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { user, isLoading: authLoading, updateUser, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
   const audioPlayer = useAudioPlayer();
 
   useEffect(() => {
-    // Load user profile
-    try {
-      const savedProfile = localStorage.getItem('user_profile');
-      if (savedProfile) {
-        setUserProfile(JSON.parse(savedProfile));
-      } else {
-        // Create a default profile if none exists for a better first-time experience
-        const defaultProfile: UserProfile = {
-            name: 'Kullanıcı',
-            joinDate: new Date().toISOString()
-        };
-        setUserProfile(defaultProfile);
-        localStorage.setItem('user_profile', JSON.stringify(defaultProfile));
-      }
-    } catch(error) {
-      console.error("Failed to parse user profile, resetting.", error);
-      localStorage.removeItem('user_profile');
-    }
-
-    // Fetch location and prayer times on initial load
-    if (navigator.geolocation) {
+    // Fetch location and prayer times on initial load if user is logged in
+    if (user && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
@@ -59,49 +43,36 @@ const App: React.FC = () => {
           }
         },
         (error) => {
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              setLocationError("Namaz vakitleri için konum izni vermeniz gerekmektedir.");
-              break;
-            case error.POSITION_UNAVAILABLE:
-              setLocationError("Konum bilgisi alınamıyor. Cihazınızın konum servisini kontrol edin.");
-              break;
-            case error.TIMEOUT:
-              setLocationError("Konum bilgisi alırken zaman aşımı oldu.");
-              break;
-            default:
-              setLocationError("Konum alınırken bir hata oluştu.");
-              break;
-          }
+          // Handle specific errors...
+          setLocationError("Konum servisi uyarısı: " + error.message);
         }
       );
-    } else {
-      setLocationError("Tarayıcınız konum servisini desteklemiyor.");
     }
-  }, []);
-  
-  const handleUpdateProfile = (name: string) => {
-    const updatedProfile: UserProfile = {
-      name,
-      joinDate: userProfile?.joinDate || new Date().toISOString(),
-    };
-    setUserProfile(updatedProfile);
-    localStorage.setItem('user_profile', JSON.stringify(updatedProfile));
-  };
+  }, [user]);
 
   const handleClearAllData = () => {
-    if (window.confirm("Emin misiniz? Tüm verileriniz (namaz takibi, notlar, sohbet geçmişi vb.) kalıcı olarak silinecektir.")) {
-      localStorage.clear();
-      window.location.reload();
+    if (window.confirm("Çıkış yapmak istediğinize emin misiniz?")) {
+      logout();
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="animate-spin text-primary-600" size={40} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   const renderContent = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     switch (activeTab) {
       case Tab.HOME:
-        return <Home profile={userProfile} changeTab={setActiveTab} prayerTimes={prayerTimes} locationError={locationError} />;
+        return <Home profile={user} changeTab={setActiveTab} prayerTimes={prayerTimes} locationError={locationError} />;
       case Tab.PRAYER:
         return (
           <div className="pt-6">
@@ -126,13 +97,13 @@ const App: React.FC = () => {
           </div>
         );
       case Tab.GUIDE:
-        return <AIGuide userProfile={userProfile} />;
+        return <AIGuide userProfile={user} />;
       case Tab.QUIET:
         return <QuietCorner />;
       case Tab.PROFILE:
-        return <Profile profile={userProfile} onUpdateProfile={handleUpdateProfile} onClearAllData={handleClearAllData} />;
+        return <Profile profile={user} onUpdateProfile={(name) => updateUser({ name })} onClearAllData={handleClearAllData} />;
       default:
-        return <Home profile={userProfile} changeTab={setActiveTab} prayerTimes={prayerTimes} locationError={locationError} />;
+        return <Home profile={user} changeTab={setActiveTab} prayerTimes={prayerTimes} locationError={locationError} />;
     }
   };
 
@@ -148,5 +119,13 @@ const App: React.FC = () => {
     </AppContext.Provider>
   );
 };
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
 
 export default App;

@@ -12,9 +12,3 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
-
-declare var process: {
-  env: {
-    [key: string]: string | undefined;
-  }
-};

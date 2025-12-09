@@ -2,10 +2,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createChatSession } from '../services/geminiService';
 import { ChatMessage, Bookmark, AIPersonality, UserProfile } from '../types';
-import { Send, Sparkles, User, Loader2, Mic, MicOff, Search, X, BookOpen, Bookmark as BookmarkIcon, Trash2, ChevronDown, ChevronUp, Settings, Heart, GraduationCap, Star, CloudRain, Sun, HelpCircle, ArrowRight, RefreshCw, MessageCircle } from 'lucide-react';
+import { Send, Sparkles, User, Loader2, Mic, MicOff, Search, X, Bookmark as BookmarkIcon, Trash2, ChevronDown, RefreshCw, ArrowRight, Heart, GraduationCap, Star, CloudRain, Sun, HelpCircle, Lock } from 'lucide-react';
 import { Chat, GenerateContentResponse } from "@google/genai";
-
-// --- CONFIG & DATA ---
+import PaywallModal from './PaywallModal';
 
 interface AIGuideProps {
     userProfile: UserProfile | null;
@@ -52,10 +51,10 @@ const FOLLOW_UP_SUGGESTIONS = [
     "Bu konuda başka bir bakış açısı var mı?"
 ];
 
-// --- COMPONENT ---
+// SaaS Limit Config
+const FREE_MESSAGE_LIMIT = 5;
 
 const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
-  // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -67,6 +66,7 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [showPaywall, setShowPaywall] = useState(false);
   
   // Refs
   const chatSession = useRef<Chat | null>(null);
@@ -75,7 +75,6 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
 
   // Initialize
   useEffect(() => {
-    // 1. Load History
     try {
         const savedMessages = localStorage.getItem('ai_guide_history');
         if (savedMessages) setMessages(JSON.parse(savedMessages));
@@ -84,12 +83,12 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
         if (savedBookmarks) setBookmarks(JSON.parse(savedBookmarks));
     } catch(e) { console.error("Load error", e); }
 
-    // 2. Init Speech
+    // Init Speech
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = true; // For wave animation
+      recognitionRef.current.interimResults = true; 
       recognitionRef.current.lang = 'tr-TR';
 
       recognitionRef.current.onresult = (event: any) => {
@@ -104,25 +103,42 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
     }
   }, []);
 
-  // Init/Update Chat Session when Mode Changes
   useEffect(() => {
       chatSession.current = createChatSession(MODES[selectedMode].traits);
-      // We don't clear messages to keep context, but we inject a system note invisibly if needed.
-      // Actually, createChatSession returns a new object, so previous context in the SDK sense is lost unless we replay history.
-      // For this app, starting fresh context on mode switch is often cleaner or we can feed history. 
-      // Let's assume mode switch resets "session context" but keeps UI history visible.
   }, [selectedMode]);
 
-  // Auto-scroll
   useEffect(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      // Persist
       if (messages.length > 0) localStorage.setItem('ai_guide_history', JSON.stringify(messages));
   }, [messages]);
+
+  // Check Daily Limit
+  const checkLimit = () => {
+      if (userProfile?.subscriptionTier === 'PREMIUM') return true;
+
+      const today = new Date().toISOString().split('T')[0];
+      const savedDate = localStorage.getItem('ai_usage_date');
+      let count = parseInt(localStorage.getItem('ai_usage_count') || '0');
+
+      if (savedDate !== today) {
+          count = 0;
+          localStorage.setItem('ai_usage_date', today);
+      }
+
+      if (count >= FREE_MESSAGE_LIMIT) {
+          setShowPaywall(true);
+          return false;
+      }
+
+      localStorage.setItem('ai_usage_count', (count + 1).toString());
+      return true;
+  };
 
   const handleSend = async (textOverride?: string) => {
       const textToSend = textOverride || input;
       if (!textToSend.trim()) return;
+
+      if (!checkLimit()) return;
 
       const userMsg: ChatMessage = {
           id: Date.now().toString(),
@@ -135,10 +151,9 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
       setMessages(prev => [...prev, userMsg]);
       setInput('');
       setIsTyping(true);
-      setSuggestions([]); // Clear old suggestions
+      setSuggestions([]); 
 
       try {
-          // Context Injection: Add User Name for personalization if starting new or periodically
           let messagePayload = textToSend;
           if (messages.length === 0 && userProfile?.name) {
               messagePayload = `(Kullanıcı Adı: ${userProfile.name}) ${textToSend}`;
@@ -156,7 +171,6 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
           
           setMessages(prev => [...prev, modelMsg]);
           
-          // Generate pseudo-smart suggestions (Randomly pick 2 from pool for variety)
           const shuffled = [...FOLLOW_UP_SUGGESTIONS].sort(() => 0.5 - Math.random());
           setSuggestions(shuffled.slice(0, 2));
 
@@ -203,10 +217,7 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
       }
   };
 
-  // --- RENDERING HELPERS ---
-
   const renderMessageContent = (text: string) => {
-      // Simple regex to find patterns like (Bakara, 255) and bold them
       const parts = text.split(/(\([\w\sğüşöçıİĞÜŞÖÇ]+,\s*\d+\))/g);
       return parts.map((part, i) => {
           if (part.match(/\([\w\sğüşöçıİĞÜŞÖÇ]+,\s*\d+\)/)) {
@@ -216,10 +227,14 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
       });
   };
 
+  const isPremium = userProfile?.subscriptionTier === 'PREMIUM';
+  const remainingFree = FREE_MESSAGE_LIMIT - parseInt(localStorage.getItem('ai_usage_count') || '0');
+
   return (
     <div className="flex flex-col h-full bg-gray-50 relative">
-        
-        {/* HEADER: Glassmorphism & Persona Selector */}
+        {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} featureName="Sınırsız Yapay Zeka Rehber" />}
+
+        {/* HEADER */}
         <div className="absolute top-0 left-0 right-0 z-20 px-4 py-3 bg-white/80 backdrop-blur-md border-b border-gray-100 flex justify-between items-center shadow-sm">
             <div 
                 className="flex items-center gap-2 cursor-pointer group"
@@ -237,6 +252,11 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
             </div>
             
             <div className="flex items-center gap-2">
+                {!isPremium && (
+                    <div className="text-[10px] font-bold bg-gray-100 px-2 py-1 rounded-full text-gray-500 flex items-center gap-1">
+                        <Lock size={10}/> {Math.max(0, remainingFree)} Hak
+                    </div>
+                )}
                 <button onClick={() => setShowBookmarks(!showBookmarks)} className={`p-2 rounded-full transition-colors ${showBookmarks ? 'bg-yellow-100 text-yellow-600' : 'hover:bg-gray-100 text-gray-400'}`}>
                     <BookmarkIcon size={20} />
                 </button>
@@ -246,7 +266,7 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
             </div>
         </div>
 
-        {/* MODE SELECTOR DROPDOWN */}
+        {/* MODE SELECTOR */}
         {showModeSelector && (
             <div className="absolute top-[60px] left-4 z-30 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 w-64 animate-in slide-in-from-top-2 fade-in duration-200">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 py-2">Rehber Modu Seç</h3>
@@ -274,7 +294,7 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
             </div>
         )}
 
-        {/* BOOKMARKS SIDEBAR (Mobile Overlay) */}
+        {/* BOOKMARKS */}
         {showBookmarks && (
             <div className="absolute inset-0 z-40 bg-white/95 backdrop-blur-sm animate-in fade-in duration-200 flex flex-col">
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center">
@@ -299,10 +319,9 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
             </div>
         )}
 
-        {/* MAIN CHAT AREA */}
+        {/* MAIN CHAT */}
         <div className="flex-1 overflow-y-auto pt-20 pb-4 px-4 space-y-6">
             
-            {/* EMPTY STATE / STARTERS */}
             {messages.length === 0 && (
                 <div className="animate-in slide-in-from-bottom-5 duration-700 mt-4 pb-20">
                     <div className="text-center mb-8">
@@ -333,7 +352,6 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
                 </div>
             )}
 
-            {/* MESSAGES */}
             {messages.map((msg, idx) => {
                 const isUser = msg.role === 'user';
                 const isBookmarked = bookmarks.some(b => b.id === msg.id);
@@ -341,12 +359,10 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
                 return (
                     <div key={msg.id} className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                         <div className={`flex max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-3`}>
-                            {/* Avatar */}
                             <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm ${isUser ? 'bg-gray-800 text-white' : 'bg-white border border-gray-100 text-primary-600'}`}>
                                 {isUser ? <User size={14} /> : React.createElement(MODES[selectedMode].icon, { size: 14 })}
                             </div>
 
-                            {/* Bubble */}
                             <div className={`relative group p-4 rounded-2xl shadow-sm ${
                                 isUser 
                                 ? 'bg-gray-800 text-white rounded-tr-none' 
@@ -354,7 +370,6 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
                             }`}>
                                 {isUser ? msg.text : renderMessageContent(msg.text)}
                                 
-                                {/* AI Message Actions */}
                                 {!isUser && (
                                     <div className="absolute -right-12 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-2">
                                         <button onClick={() => toggleBookmark(msg)} className={`p-2 rounded-full shadow-sm bg-white ${isBookmarked ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}>
@@ -381,7 +396,6 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
                 </div>
             )}
 
-            {/* Smart Suggestions Chips */}
             {!isTyping && suggestions.length > 0 && messages.length > 0 && (
                 <div className="flex flex-wrap gap-2 ml-11 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     {suggestions.map((sug, i) => (
@@ -399,9 +413,8 @@ const AIGuide: React.FC<AIGuideProps> = ({ userProfile }) => {
             <div ref={messagesEndRef} className="h-20" /> 
         </div>
 
-        {/* INPUT AREA */}
+        {/* INPUT */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
-            {/* Visualizer for Voice */}
             {isListening && (
                 <div className="absolute -top-12 left-0 right-0 flex justify-center gap-1 h-8 items-end pb-2">
                     {[1,2,3,4,5].map(i => (
