@@ -1,0 +1,8 @@
+{
+  "name": "Öz'e Yolculuk",
+  "description": "Kişisel manevi rehberiniz. İbadet takibi, namaz vakitleri ve Kuran temelli yapay zeka destekli 'Öz'e Dönüş Rehberi' ile kendinize yolculuk yapın.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
