@@ -1,15 +1,16 @@
-
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getDailyVerseOrHadith } from '../services/geminiService';
 import { esmaulHusna } from '../services/esmaulhusnaData';
-import { Tab, PrayerStatus, PrayerTimes, UserProfile, PRAYER_NAMES } from '../types';
-import { Sun, Sunset, Moon, MessageSquare, CalendarRange, ChevronRight, Check, Share2, Bookmark, Flame, Wind, Heart, Smile, CloudRain, Zap, BookOpen, Star, Sparkles, Gem, HandHeart, Battery, ArrowRight, X, Copy, MoonStar, MessageSquareQuote, RefreshCw, Fingerprint, Activity, Compass, Settings2, ArrowUp, ArrowDown, Eye, EyeOff, Cloud } from 'lucide-react';
+import { Tab, PrayerStatus, PrayerTimes, UserProfile, PRAYER_NAMES, LocationConfig } from '../types';
+import { Sun, Sunset, Moon, CalendarRange, Check, Share2, Bookmark, Flame, Wind, Smile, CloudRain, Zap, Star, HandHeart, ArrowRight, X, MessageSquareQuote, Fingerprint, Compass, Settings2, ArrowUp, ArrowDown, Eye, EyeOff, Cloud, MapPin } from 'lucide-react';
 
 interface HomeProps {
   profile: UserProfile | null;
   changeTab: (tab: Tab) => void;
   prayerTimes: PrayerTimes | null;
   locationError: string | null;
+  locationConfig: LocationConfig | null;
+  onOpenLocationSelector: () => void;
 }
 
 interface SummaryData {
@@ -72,19 +73,19 @@ const INTENTIONS = [
 
 const getSkyGradient = (prayerId: string | null, dayProgress: number) => {
     // Night
-    if (dayProgress < 0 || dayProgress > 1) return 'from-slate-900 via-indigo-950 to-black';
+    if (dayProgress < 0 || dayProgress > 1) return 'from-slate-900 via-slate-800 to-slate-900';
     
     // Dawn / Sunrise (0 - 0.1)
-    if (dayProgress < 0.1) return 'from-indigo-800 via-purple-700 to-orange-400';
+    if (dayProgress < 0.1) return 'from-indigo-600 via-purple-500 to-orange-400';
     
     // Morning (0.1 - 0.3)
-    if (dayProgress < 0.3) return 'from-sky-400 via-blue-300 to-blue-200';
+    if (dayProgress < 0.3) return 'from-sky-400 via-blue-300 to-emerald-200';
     
     // Noon (0.3 - 0.7)
     if (dayProgress < 0.7) return 'from-blue-500 via-sky-400 to-cyan-300';
     
     // Afternoon (0.7 - 0.9)
-    if (dayProgress < 0.9) return 'from-blue-600 via-indigo-400 to-orange-200';
+    if (dayProgress < 0.9) return 'from-blue-600 via-indigo-400 to-amber-200';
     
     // Sunset (0.9 - 1.0)
     if (dayProgress <= 1.0) return 'from-indigo-800 via-purple-600 to-orange-500';
@@ -92,7 +93,7 @@ const getSkyGradient = (prayerId: string | null, dayProgress: number) => {
     return 'from-primary-600 to-primary-800';
 };
 
-const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationError }) => {
+const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationError, locationConfig, onOpenLocationSelector }) => {
   const [dailyContent, setDailyContent] = useState<{ content: string; source: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [summary, setSummary] = useState<SummaryData>({ completedPrayers: 0, totalPrayers: 5, currentStreak: 0, completionRate: 0 });
@@ -128,14 +129,11 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
       setIsLoading(true);
       const todayStr = new Date().toISOString().split('T')[0];
 
-      // Daily Content
       const content = await getDailyVerseOrHadith();
       setDailyContent(content);
 
-      // Stats
       calculateStats(todayStr);
 
-      // Hijri & Friday
       try {
           const date = new Date();
           setIsFriday(date.getDay() === 5);
@@ -149,7 +147,6 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
           console.error("Date error", e);
       }
       
-      // Load Mission & Quick Dhikr Status
       const savedMission = localStorage.getItem(`mission_completed_${todayStr}`);
       if (savedMission === 'true') setMissionCompleted(true);
       
@@ -159,7 +156,6 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
       const savedIntention = localStorage.getItem(`daily_intention_${todayStr}`);
       if (savedIntention) setIntention(savedIntention);
       
-      // Load Widgets Config
       try {
           const savedWidgets = localStorage.getItem('home_widgets_config');
           if (savedWidgets) {
@@ -263,8 +259,6 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
              progress = Math.max(0, Math.min(100, 100 - ((diff / (1000 * 60 * 60 * 4)) * 100)));
         }
 
-        // Calculate Sun Position / Day Progress
-        // Sunrise Time
         const sunriseTime = new Date(`${todayStr}T${prayerTimes.Sunrise}`);
         const sunsetTime = new Date(`${todayStr}T${prayerTimes.Maghrib}`);
         
@@ -361,7 +355,7 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
               description: 'Endişe şeytandandır, huzur Rahmandan. Seni ferahlatacak bir zikir önerim var.',
               actionLabel: 'Hemen Zikir Çek',
               targetTab: Tab.SPIRITUAL,
-              color: 'bg-orange-50 border-orange-200 text-orange-800',
+              color: 'bg-orange-50/50 border-orange-100 text-orange-800',
               icon: Zap
           },
           tired: {
@@ -370,7 +364,7 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
               description: 'Dünya gürültüsünü susturup, sadece nefes almaya ne dersin?',
               actionLabel: 'Sessizlik Köşesine Git',
               targetTab: Tab.QUIET,
-              color: 'bg-blue-50 border-blue-200 text-blue-800',
+              color: 'bg-blue-50/50 border-blue-100 text-blue-800',
               icon: Wind
           },
           sad: {
@@ -379,7 +373,7 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
               description: 'Allah sabredenlerle beraberdir. Senin için bir ayet seçtim.',
               actionLabel: 'Rehberle Konuş',
               targetTab: Tab.GUIDE,
-              color: 'bg-slate-50 border-slate-200 text-slate-800',
+              color: 'bg-slate-50/50 border-slate-200 text-slate-800',
               icon: CloudRain
           },
           happy: {
@@ -388,7 +382,7 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
               description: 'Bu neşeyi şükürle taçlandır. Şükür nimeti artırır.',
               actionLabel: 'Şükür Namazı Kıl',
               targetTab: Tab.PRAYER,
-              color: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+              color: 'bg-yellow-50/50 border-yellow-200 text-yellow-800',
               icon: Smile
           }
       };
@@ -480,71 +474,64 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
       switch (widget.id) {
           case 'intention':
               return (
-                 <div key={widget.id} className={`${widget.colSpan} bg-gradient-to-br from-violet-50 to-purple-50 p-4 rounded-3xl border border-purple-100 shadow-sm relative overflow-hidden group`}>
-                     <div className="absolute top-0 right-0 w-20 h-20 bg-purple-200/50 rounded-full -mr-10 -mt-10 blur-xl"></div>
-                     <div className="relative z-10">
-                         <div className="flex items-center gap-2 text-purple-800 mb-2">
-                             <Compass size={18} />
-                             <span className="text-xs font-bold uppercase tracking-wide">Manevi Pusula</span>
-                         </div>
-                         <div className="h-12 flex items-center justify-center mb-2">
-                            <p className={`text-xl font-bold text-center text-gray-800 transition-all ${isSpinning ? 'blur-[1px] scale-95 opacity-70' : 'scale-100 opacity-100'}`}>
-                                {intention || "Niyetini Seç"}
-                            </p>
-                         </div>
-                         <button 
-                            onClick={handleSpinIntention}
-                            disabled={isSpinning}
-                            className="w-full py-2 bg-white text-purple-700 text-xs font-bold rounded-xl shadow-sm hover:shadow-md active:scale-95 transition-all disabled:opacity-50"
-                         >
-                            {isSpinning ? "Seçiliyor..." : "Niyet Çek"}
-                         </button>
+                 <div key={widget.id} className={`${widget.colSpan} glass-panel p-5 rounded-3xl relative overflow-hidden group hover:shadow-[0_8px_16px_rgba(0,0,0,0.05)] transition-all`}>
+                     <div className="flex items-center gap-2 text-primary-800 mb-2">
+                         <Compass size={18} className="text-primary-600"/>
+                         <span className="text-xs font-bold uppercase tracking-widest text-primary-600">Manevi Pusula</span>
                      </div>
+                     <div className="h-16 flex items-center justify-center mb-1">
+                        <p className={`text-xl font-serif font-bold text-center text-gray-800 transition-all ${isSpinning ? 'blur-[1px] scale-95 opacity-70' : 'scale-100 opacity-100'}`}>
+                            {intention || "Niyetini Seç"}
+                        </p>
+                     </div>
+                     <button 
+                        onClick={handleSpinIntention}
+                        disabled={isSpinning}
+                        className="w-full py-2.5 bg-primary-50 text-primary-700 text-xs font-bold rounded-xl active:scale-95 transition-all disabled:opacity-50 border border-primary-100 hover:bg-primary-100"
+                     >
+                        {isSpinning ? "Seçiliyor..." : "Niyet Çek"}
+                     </button>
                  </div>
               );
           case 'quickDhikr':
               return (
-                 <div key={widget.id} className={`${widget.colSpan} bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-3xl border border-teal-100 shadow-sm relative overflow-hidden`}>
-                     <div className="absolute top-0 right-0 w-20 h-20 bg-teal-200/50 rounded-full -mr-10 -mt-10 blur-xl"></div>
-                     <div className="relative z-10 flex flex-col h-full justify-between">
+                 <div key={widget.id} className={`${widget.colSpan} glass-panel p-5 rounded-3xl relative overflow-hidden hover:shadow-[0_8px_16px_rgba(0,0,0,0.05)] transition-all`}>
+                     <div className="flex flex-col h-full justify-between">
                          <div className="flex items-center justify-between text-teal-800 mb-1">
                              <div className="flex items-center gap-2">
-                                <Fingerprint size={18} />
-                                <span className="text-xs font-bold uppercase tracking-wide">Hızlı Zikir</span>
+                                <Fingerprint size={18} className="text-teal-600"/>
+                                <span className="text-xs font-bold uppercase tracking-widest text-teal-600">Zikir</span>
                              </div>
-                             <span className="text-[10px] opacity-70">Estağfirullah</span>
                          </div>
-                         <div className="flex-1 flex items-center justify-center my-1">
+                         <div className="flex-1 flex flex-col items-center justify-center my-1 gap-2">
                              <button 
                                 onClick={handleQuickDhikr}
-                                className="w-14 h-14 rounded-full bg-white border-4 border-teal-100 flex items-center justify-center shadow-sm text-xl font-bold text-teal-600 active:scale-90 active:border-teal-300 transition-all"
+                                className="w-16 h-16 rounded-full bg-white border-4 border-teal-100 flex items-center justify-center shadow-sm text-2xl font-bold text-teal-600 active:scale-90 active:border-teal-300 transition-all"
                              >
                                 {quickDhikrCount}
                              </button>
-                         </div>
-                         <div className="w-full bg-teal-200/50 h-1 rounded-full overflow-hidden mt-1">
-                             <div className="h-full bg-teal-500 transition-all" style={{ width: `${(quickDhikrCount % 100)}%` }}></div>
+                             <span className="text-[10px] text-gray-400 font-medium">Estağfirullah</span>
                          </div>
                      </div>
                  </div>
               );
           case 'breath':
               return (
-                 <div key={widget.id} className={`${widget.colSpan} bg-gradient-to-r from-sky-50 to-blue-50 p-4 rounded-3xl border border-blue-100 shadow-sm flex items-center justify-between relative overflow-hidden`}>
-                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-blue-200/30 rounded-full blur-2xl animate-pulse"></div>
-                      <div className="flex items-center gap-3 relative z-10">
-                          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-blue-500 animate-[pulse_4s_ease-in-out_infinite]">
-                              <Wind size={20} />
+                 <div key={widget.id} className={`${widget.colSpan} glass-panel p-5 rounded-3xl flex items-center justify-between relative overflow-hidden hover:shadow-[0_8px_16px_rgba(0,0,0,0.05)] transition-all`}>
+                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-blue-100/40 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
+                      <div className="flex items-center gap-4 relative z-10">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-blue-500 animate-[breath_6s_ease-in-out_infinite]">
+                              <Wind size={24} />
                           </div>
                           <div>
-                              <h4 className="font-bold text-gray-800 text-sm">Anlık Huzur</h4>
-                              <p className="text-[10px] text-gray-500">4 sn al, 4 sn ver.</p>
+                              <h4 className="font-bold text-gray-800 text-base">Anlık Huzur</h4>
+                              <p className="text-xs text-gray-500 mt-0.5">4 saniye al, 4 saniye ver.</p>
                           </div>
                       </div>
-                      <div className="relative z-10 flex items-center gap-1">
+                      <div className="relative z-10 flex items-center gap-1.5">
                            <div className="w-2 h-2 bg-blue-300 rounded-full animate-[bounce_4s_infinite_0ms]"></div>
-                           <div className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-[bounce_4s_infinite_200ms]"></div>
-                           <div className="w-3 h-3 bg-blue-500 rounded-full animate-[bounce_4s_infinite_400ms]"></div>
+                           <div className="w-2 h-2 bg-blue-400 rounded-full animate-[bounce_4s_infinite_200ms]"></div>
+                           <div className="w-2 h-2 bg-blue-500 rounded-full animate-[bounce_4s_infinite_400ms]"></div>
                       </div>
                  </div>
               );
@@ -553,90 +540,100 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
       }
   };
 
+  const currentLocationLabel = useMemo(() => {
+    if (!locationConfig) return "Konum Alınıyor...";
+    if (locationConfig.type === 'GPS') return "GPS Konumu";
+    if (locationConfig.type === 'MANUAL') return `${locationConfig.city}, ${locationConfig.country}`;
+    return "Konum Seçin";
+  }, [locationConfig]);
+
   return (
-    <div className="flex flex-col h-full bg-gray-50/50 relative">
+    <div className="flex flex-col h-full relative">
       {isFriday && (
-          <div className="bg-teal-700 text-white text-xs font-bold py-1.5 text-center shadow-sm animate-in slide-in-from-top-full z-20">
-              🌹 Hayırlı Cumalar! Bugün Kehf suresini okumayı unutma.
+          <div className="bg-primary-600 text-white text-xs font-bold py-2 text-center shadow-sm animate-in slide-in-from-top-full z-20">
+              🌹 Hayırlı Cumalar!
           </div>
       )}
 
       {/* Widget Settings Modal */}
       {showWidgetSettings && (
-          <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
-              <div className="w-full bg-white rounded-t-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-5 duration-300">
-                  <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-lg font-bold text-gray-800">Ana Sayfa Düzeni</h3>
-                      <button onClick={() => setShowWidgetSettings(false)} className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200"><X size={20}/></button>
+          <div className="absolute inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
+              <div className="w-full bg-white rounded-t-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom-5 duration-300">
+                  <div className="flex justify-between items-center mb-8">
+                      <h3 className="text-xl font-bold text-gray-800">Ana Sayfa Düzeni</h3>
+                      <button onClick={() => setShowWidgetSettings(false)} className="p-2 bg-gray-50 rounded-full text-gray-600 hover:bg-gray-100"><X size={20}/></button>
                   </div>
-                  <div className="space-y-3 mb-6">
+                  <div className="space-y-4 mb-8">
                       {widgets.map((widget, index) => (
-                          <div key={widget.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                              <span className="font-medium text-gray-700">{widget.label}</span>
-                              <div className="flex items-center gap-2">
-                                  <button onClick={() => handleMoveWidget(index, 'up')} disabled={index === 0} className="p-1.5 text-gray-400 hover:text-primary-600 disabled:opacity-30"><ArrowUp size={18}/></button>
-                                  <button onClick={() => handleMoveWidget(index, 'down')} disabled={index === widgets.length - 1} className="p-1.5 text-gray-400 hover:text-primary-600 disabled:opacity-30"><ArrowDown size={18}/></button>
+                          <div key={widget.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                              <span className="font-semibold text-gray-700">{widget.label}</span>
+                              <div className="flex items-center gap-3">
+                                  <button onClick={() => handleMoveWidget(index, 'up')} disabled={index === 0} className="p-2 text-gray-400 hover:text-primary-600 disabled:opacity-30 hover:bg-white rounded-lg transition-colors"><ArrowUp size={18}/></button>
+                                  <button onClick={() => handleMoveWidget(index, 'down')} disabled={index === widgets.length - 1} className="p-2 text-gray-400 hover:text-primary-600 disabled:opacity-30 hover:bg-white rounded-lg transition-colors"><ArrowDown size={18}/></button>
                                   <div className="w-px h-6 bg-gray-200 mx-1"></div>
-                                  <button onClick={() => handleToggleWidget(widget.id)} className={`p-1.5 rounded-lg transition-colors ${widget.visible ? 'bg-primary-100 text-primary-600' : 'bg-gray-200 text-gray-400'}`}>
+                                  <button onClick={() => handleToggleWidget(widget.id)} className={`p-2 rounded-lg transition-colors ${widget.visible ? 'bg-primary-100 text-primary-600' : 'bg-gray-200 text-gray-400'}`}>
                                       {widget.visible ? <Eye size={18}/> : <EyeOff size={18}/>}
                                   </button>
                               </div>
                           </div>
                       ))}
                   </div>
-                  <button onClick={() => setShowWidgetSettings(false)} className="w-full py-3 bg-primary-600 text-white rounded-xl font-bold shadow-lg shadow-primary-200 active:scale-95 transition-transform">
+                  <button onClick={() => setShowWidgetSettings(false)} className="w-full py-4 bg-primary-600 text-white rounded-2xl font-bold shadow-xl shadow-primary-200 active:scale-95 transition-transform hover:bg-primary-700">
                       Tamamla
                   </button>
               </div>
           </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-6 pb-24 space-y-6 no-scrollbar">
+      <div className="flex-1 overflow-y-auto px-6 pt-10 pb-32 space-y-8 no-scrollbar">
         {/* Header Section */}
         <div className="flex items-center justify-between">
             <div>
-                <div className="flex items-center gap-2 text-gray-500 text-xs font-medium mb-1 bg-white px-2 py-1 rounded-md shadow-sm border border-gray-100 inline-flex">
-                    <CalendarRange size={12}/>
-                    <span>{hijriDate}</span>
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 text-gray-500 text-xs font-bold glass px-3 py-1 rounded-full shadow-sm border-0 inline-flex">
+                        <CalendarRange size={12}/>
+                        <span>{hijriDate}</span>
+                    </div>
+                    
+                    {/* Location Badge */}
+                    <button 
+                      onClick={onOpenLocationSelector}
+                      className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-white/50 px-2 py-1 rounded-full border border-gray-200 hover:bg-white active:scale-95 transition-all"
+                    >
+                      <MapPin size={12}/>
+                      <span className="max-w-[100px] truncate">{currentLocationLabel}</span>
+                    </button>
                 </div>
-                <h1 className="text-2xl font-bold text-gray-800 tracking-tight leading-none mt-2">{getGreeting()}, <br/><span className="text-primary-600">{profile?.name || 'Mümin'}</span></h1>
+                <h1 className="text-3xl font-serif font-bold text-gray-900 tracking-tight leading-none">
+                    {getGreeting()}, <br/>
+                    <span className="text-primary-600 bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-emerald-500">{profile?.name || 'Mümin'}</span>
+                </h1>
             </div>
             
             {/* Spiritual Battery / Streak */}
             <div className="flex flex-col items-end gap-2">
-                 <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full border border-orange-100 shadow-sm">
-                     <Flame size={14} className="fill-orange-500 animate-pulse"/>
-                     <span className="text-xs font-bold">{summary.currentStreak} Gün</span>
-                 </div>
-                 
-                 {/* Battery Indicator */}
-                 <div className="flex items-center gap-2">
-                    <div className="w-24 h-2.5 bg-gray-200 rounded-full overflow-hidden relative">
-                        <div 
-                            className={`h-full transition-all duration-700 rounded-full ${summary.completionRate === 100 ? 'bg-green-500' : 'bg-primary-500'}`} 
-                            style={{width: `${summary.completionRate}%`}}
-                        />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-400">%{summary.completionRate}</span>
+                 <div className="glass px-3 py-1.5 rounded-full flex items-center gap-2 shadow-sm border-white/60">
+                     <Flame size={16} className="text-orange-500 fill-orange-500 animate-pulse"/>
+                     <span className="text-sm font-bold text-gray-700">{summary.currentStreak}</span>
                  </div>
             </div>
         </div>
         
-        {/* Interactive Mood Prescription / Soul Check-in */}
+        {/* Mood Check-in */}
         <div className="relative">
              {activePrescription ? (
-                 <div className={`rounded-2xl p-5 border shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 relative ${activePrescription.color}`}>
-                     <button onClick={() => setActivePrescription(null)} className="absolute top-3 right-3 p-1 rounded-full hover:bg-black/5 transition-colors"><X size={16}/></button>
-                     <div className="flex items-start gap-4">
-                         <div className="p-3 bg-white/50 rounded-xl backdrop-blur-sm">
-                             <activePrescription.icon size={24} />
+                 <div className={`glass-panel rounded-3xl p-6 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 relative ${activePrescription.color}`}>
+                     <button onClick={() => setActivePrescription(null)} className="absolute top-4 right-4 p-1 rounded-full hover:bg-black/5 transition-colors"><X size={18}/></button>
+                     <div className="flex items-start gap-5">
+                         <div className="p-4 bg-white/80 rounded-2xl backdrop-blur-sm shadow-sm">
+                             <activePrescription.icon size={28} />
                          </div>
-                         <div className="flex-1">
+                         <div className="flex-1 pt-1">
                              <h3 className="font-bold text-lg mb-1">{activePrescription.title}</h3>
                              <p className="text-sm opacity-90 mb-4 leading-relaxed">{activePrescription.description}</p>
                              <button 
                                 onClick={handlePrescriptionAction}
-                                className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-all"
+                                className="flex items-center gap-2 px-5 py-2.5 bg-white/90 rounded-xl text-sm font-bold shadow-sm active:scale-95 transition-all hover:bg-white"
                              >
                                  {activePrescription.actionLabel} <ArrowRight size={16}/>
                              </button>
@@ -644,178 +641,178 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
                      </div>
                  </div>
              ) : (
-                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                     <h3 className="text-sm font-bold text-gray-800 mb-3">Bugün Ruh Halin Nasıl?</h3>
-                     <div className="flex justify-between gap-2">
-                         <button onClick={() => handleMoodCheck('happy')} className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors active:scale-95">
-                             <Smile size={24}/> <span className="text-[10px] font-medium">Huzurlu</span>
+                 <div className="glass-panel rounded-3xl p-5">
+                     <h3 className="text-xs font-bold text-gray-400 mb-4 uppercase tracking-widest">Bugün Ruh Halin Nasıl?</h3>
+                     <div className="flex justify-between gap-3">
+                         <button onClick={() => handleMoodCheck('happy')} className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl bg-gradient-to-br from-yellow-50 to-orange-50/50 text-yellow-700 hover:shadow-md transition-all active:scale-95 border border-yellow-100/50">
+                             <Smile size={28}/> <span className="text-[10px] font-bold mt-1">Huzurlu</span>
                          </button>
-                         <button onClick={() => handleMoodCheck('tired')} className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors active:scale-95">
-                             <Wind size={24}/> <span className="text-[10px] font-medium">Yorgun</span>
+                         <button onClick={() => handleMoodCheck('tired')} className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50/50 text-blue-700 hover:shadow-md transition-all active:scale-95 border border-blue-100/50">
+                             <Wind size={28}/> <span className="text-[10px] font-bold mt-1">Yorgun</span>
                          </button>
-                         <button onClick={() => handleMoodCheck('anxious')} className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors active:scale-95">
-                             <Zap size={24}/> <span className="text-[10px] font-medium">Kaygılı</span>
+                         <button onClick={() => handleMoodCheck('anxious')} className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl bg-gradient-to-br from-orange-50 to-red-50/50 text-orange-700 hover:shadow-md transition-all active:scale-95 border border-orange-100/50">
+                             <Zap size={28}/> <span className="text-[10px] font-bold mt-1">Kaygılı</span>
                          </button>
-                         <button onClick={() => handleMoodCheck('sad')} className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors active:scale-95">
-                             <CloudRain size={24}/> <span className="text-[10px] font-medium">Üzgün</span>
+                         <button onClick={() => handleMoodCheck('sad')} className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl bg-gradient-to-br from-slate-50 to-gray-100/50 text-slate-700 hover:shadow-md transition-all active:scale-95 border border-slate-100/50">
+                             <CloudRain size={28}/> <span className="text-[10px] font-bold mt-1">Üzgün</span>
                          </button>
                      </div>
                  </div>
              )}
         </div>
 
-        {/* Main Prayer Card (Hero) with Scenic Animation */}
-        <div className={`relative rounded-3xl text-white shadow-xl overflow-hidden bg-gradient-to-b transition-all duration-1000 ${getSkyGradient(timeContext?.currentPrayerId || null, timeContext?.dayProgress || -1)}`}>
+        {/* Hero Prayer Card */}
+        <div className={`relative rounded-[2.5rem] text-white shadow-2xl shadow-primary-900/10 overflow-hidden bg-gradient-to-br transition-all duration-1000 ${getSkyGradient(timeContext?.currentPrayerId || null, timeContext?.dayProgress || -1)}`}>
             
             {/* SCENIC BACKGROUND ELEMENTS */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                {/* 1. Sun/Moon Logic */}
                 {timeContext && timeContext.dayProgress >= 0 && timeContext.dayProgress <= 1 ? (
-                    // SUN (Daytime)
                     <div 
-                        className="absolute w-16 h-16 bg-yellow-300 rounded-full shadow-[0_0_40px_10px_rgba(253,224,71,0.5)] transition-all duration-1000"
+                        className="absolute w-32 h-32 bg-yellow-300 rounded-full shadow-[0_0_80px_30px_rgba(253,224,71,0.5)] transition-all duration-1000 blur-sm mix-blend-screen"
                         style={{ 
                             left: `${timeContext.dayProgress * 100}%`,
-                            bottom: `${Math.sin(timeContext.dayProgress * Math.PI) * 70}%`, // Parabolic arc
+                            bottom: `${Math.sin(timeContext.dayProgress * Math.PI) * 50}%`,
                             transform: 'translate(-50%, 50%)'
                         }}
                     ></div>
                 ) : (
-                    // MOON (Nighttime)
                     <>
-                        <div className="absolute top-10 left-10 text-yellow-100 opacity-80 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]">
-                            <Moon size={32} fill="currentColor" />
+                        <div className="absolute top-10 left-10 text-yellow-100 opacity-90 drop-shadow-[0_0_30px_rgba(255,255,255,0.6)]">
+                            <Moon size={48} fill="currentColor" />
                         </div>
-                        {/* Stars */}
-                        <div className="absolute top-4 right-10 w-1 h-1 bg-white rounded-full animate-pulse"></div>
-                        <div className="absolute top-12 right-20 w-1 h-1 bg-white rounded-full animate-[pulse_3s_infinite]"></div>
-                        <div className="absolute top-20 right-6 w-1.5 h-1.5 bg-white rounded-full animate-[pulse_4s_infinite]"></div>
+                        <div className="absolute top-8 right-12 w-1.5 h-1.5 bg-white rounded-full animate-pulse shadow-[0_0_8px_white]"></div>
+                        <div className="absolute top-20 right-24 w-1 h-1 bg-white rounded-full animate-[pulse_4s_infinite] shadow-[0_0_5px_white]"></div>
                     </>
                 )}
 
-                {/* 2. Clouds (Animation) */}
-                <div className="absolute top-4 left-[-10%] opacity-40 animate-[drift_20s_linear_infinite] text-white">
-                    <Cloud size={64} fill="currentColor" />
+                <div className="absolute top-4 left-[-10%] opacity-20 animate-[drift_30s_linear_infinite] text-white">
+                    <Cloud size={100} fill="currentColor" />
                 </div>
-                <div className="absolute top-12 right-[-20%] opacity-30 animate-[drift_25s_linear_infinite_reverse] text-white">
-                    <Cloud size={48} fill="currentColor" />
-                </div>
-
-                {/* 3. Landscape Silhouette (Mosque/City) */}
-                <div className="absolute bottom-0 left-0 right-0 h-16 opacity-30 text-black/40">
-                     <svg viewBox="0 0 500 100" preserveAspectRatio="none" className="w-full h-full fill-current">
-                         <path d="M0,100 L0,80 Q20,60 40,80 T80,80 T120,60 L140,40 L160,60 Q180,40 200,60 L220,10 L240,60 Q260,40 280,60 T320,80 T360,60 L400,80 L500,80 L500,100 Z" />
+                {/* Organic wave shape at bottom */}
+                <div className="absolute bottom-0 left-0 right-0 h-32 opacity-20 text-black/30">
+                     <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="w-full h-full fill-current">
+                         <path fillOpacity="1" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,250.7C960,235,1056,181,1152,165.3C1248,149,1344,171,1392,181.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
                      </svg>
                 </div>
             </div>
 
             {/* CONTENT LAYER */}
-            <div className="relative z-10 p-6">
-                <div className="flex justify-between items-start mb-6">
+            <div className="relative z-10 p-8 flex flex-col h-full justify-between min-h-[220px]">
+                <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-sm font-medium opacity-90 mb-1 flex items-center gap-2 drop-shadow-md">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mb-3">
                            {timeContext?.currentPrayerId ? (
                                <>
-                                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_5px_rgba(74,222,128,0.8)]"></span>
-                                 {timeContext.currentPrayerName} Vakti
+                                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,1)]"></div>
+                                 <span className="text-[10px] font-bold tracking-widest uppercase">{timeContext.currentPrayerName} Vakti</span>
                                </>
-                           ) : 'Vakit Hesaplanıyor...'}
-                        </p>
-                        <div className="flex items-baseline gap-1 drop-shadow-md">
-                             <span className="text-4xl font-bold tracking-tight font-mono">{timeContext?.countdown || '--:--:--'}</span>
-                             <span className="text-sm opacity-80">kaldı</span>
+                           ) : <span className="text-xs">Hesaplanıyor...</span>}
                         </div>
+                        <div className="flex items-baseline gap-2 mt-1">
+                             <span className="text-6xl font-mono font-bold tracking-tighter drop-shadow-lg">{timeContext?.countdown || '--:--:--'}</span>
+                        </div>
+                        <p className="text-sm opacity-80 mt-1 font-medium ml-1">Sonraki vakte kalan süre</p>
                     </div>
                     
                     {timeContext?.currentPrayerId && timeContext.currentPrayerId !== 'sunrise' && (
                         <button 
                             onClick={handleToggleCurrentPrayer}
-                            className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl backdrop-blur-md border border-white/20 shadow-lg transition-all active:scale-95 ${currentPrayerCompleted ? 'bg-green-500/30 text-white border-green-400/50' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                            className={`flex flex-col items-center justify-center w-16 h-16 rounded-2xl backdrop-blur-xl border shadow-lg transition-all active:scale-95 group ${currentPrayerCompleted ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'}`}
                         >
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${currentPrayerCompleted ? 'bg-white border-white' : 'border-white/50'}`}>
-                                {currentPrayerCompleted && <Check size={14} className="text-green-600" strokeWidth={3} />}
+                            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all mb-1 ${currentPrayerCompleted ? 'bg-white border-white' : 'border-white/60 group-hover:border-white'}`}>
+                                {currentPrayerCompleted && <Check size={16} className="text-emerald-600" strokeWidth={4} />}
                             </div>
-                            <span className="text-[9px] font-bold mt-1 shadow-sm">{currentPrayerCompleted ? 'Kılındı' : 'Kıl'}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider">{currentPrayerCompleted ? 'Kılındı' : 'Kıl'}</span>
                         </button>
                     )}
                 </div>
 
-                {/* Progress Bar */}
-                <div className="w-full bg-black/20 rounded-full h-1.5 mb-2 overflow-hidden backdrop-blur-sm">
-                    <div 
-                        className="h-full bg-white/90 rounded-full transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(255,255,255,0.5)]" 
-                        style={{ width: `${timeContext?.progressPercent || 0}%` }}
-                    />
-                </div>
-                
-                <div className="flex justify-between items-center text-xs font-medium opacity-90 drop-shadow-sm">
-                     <span>Sıradaki: {timeContext?.nextPrayerName}</span>
-                     <span>{timeContext?.nextPrayerTime}</span>
+                <div className="mt-8">
+                    <div className="flex justify-between items-end mb-2 text-xs font-medium opacity-90 px-1">
+                        <span>Sıradaki: <span className="font-bold text-white text-base">{timeContext?.nextPrayerName}</span></span>
+                        <span className="font-mono text-base">{timeContext?.nextPrayerTime}</span>
+                    </div>
+                    <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden backdrop-blur-sm">
+                        <div 
+                            className="h-full bg-white rounded-full transition-all duration-1000 ease-linear shadow-[0_0_15px_rgba(255,255,255,0.8)]" 
+                            style={{ width: `${timeContext?.progressPercent || 0}%` }}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
         
-        {/* Horizontal Prayer Timeline */}
-        {prayerTimes && (
-            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x">
+        {/* Timeline */}
+        {prayerTimes ? (
+            <div className="flex gap-3 overflow-x-auto pb-4 pt-1 no-scrollbar snap-x px-1">
                 {['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'].map((key) => {
                     const pName = { Fajr: 'Sabah', Sunrise: 'Güneş', Dhuhr: 'Öğle', Asr: 'İkindi', Maghrib: 'Akşam', Isha: 'Yatsı' }[key];
                     const pId = { Fajr: 'fajr', Sunrise: 'sunrise', Dhuhr: 'dhuhr', Asr: 'asr', Maghrib: 'maghrib', Isha: 'isha' }[key];
                     const time = prayerTimes[key as keyof PrayerTimes];
                     const isActive = timeContext?.currentPrayerId === pId;
-                    const isNext = timeContext?.nextPrayerName === pName;
                     
                     return (
-                        <div key={key} className={`snap-center flex-shrink-0 flex flex-col items-center justify-center min-w-[70px] p-3 rounded-2xl border transition-all ${isActive ? 'bg-primary-600 text-white border-primary-600 shadow-md scale-105' : isNext ? 'bg-white border-primary-200 text-primary-800' : 'bg-white border-gray-100 text-gray-400'}`}>
-                            <div className="mb-1">{prayerIcons[pName || '']}</div>
-                            <span className="text-[10px] font-medium uppercase tracking-wide opacity-80">{pName}</span>
-                            <span className="text-sm font-bold">{time}</span>
+                        <div key={key} className={`snap-center flex-shrink-0 flex flex-col items-center justify-center min-w-[76px] py-4 rounded-2xl border transition-all duration-300 ${isActive ? 'bg-primary-600 text-white border-primary-600 shadow-lg shadow-primary-200 scale-105' : 'bg-white border-gray-100 text-gray-400'}`}>
+                            <div className={`mb-1.5 ${isActive ? 'opacity-100' : 'opacity-70'}`}>{prayerIcons[pName || '']}</div>
+                            <span className="text-[10px] font-bold uppercase tracking-wide opacity-80">{pName}</span>
+                            <span className="text-sm font-bold mt-0.5 font-mono">{time}</span>
                         </div>
                     );
                 })}
             </div>
+        ) : locationError ? (
+            <div className="p-4 bg-red-50 text-red-600 text-xs font-medium rounded-2xl border border-red-100 flex items-center gap-3">
+               <CloudRain size={18}/>
+               <p>{locationError}</p>
+            </div>
+        ) : (
+            <div className="text-center py-6 text-gray-400 text-sm">Namaz vakitleri yükleniyor...</div>
         )}
 
-        {/* CUSTOMIZABLE WIDGETS SECTION */}
-        <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Araçlar</h3>
-            <button onClick={() => setShowWidgetSettings(true)} className="flex items-center gap-1 text-xs font-semibold text-primary-600 hover:bg-primary-50 px-2 py-1 rounded-lg transition-colors">
+        {/* Widgets Grid */}
+        <div className="flex items-center justify-between mt-2">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Araçlar</h3>
+            <button onClick={() => setShowWidgetSettings(true)} className="flex items-center gap-1 text-xs font-bold text-primary-600 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-colors">
                 <Settings2 size={14} /> Düzenle
             </button>
         </div>
         
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
              {widgets.map(widget => renderWidget(widget))}
         </div>
 
-        {/* Info Tabs (Ayet / Esma / Görev) */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-             <div className="flex border-b border-gray-100">
-                 <button onClick={() => setActiveInfoTab('AYET')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${activeInfoTab === 'AYET' ? 'text-primary-600 bg-primary-50' : 'text-gray-400 hover:bg-gray-50'}`}>Günün Ayeti</button>
-                 <button onClick={() => setActiveInfoTab('ESMA')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${activeInfoTab === 'ESMA' ? 'text-primary-600 bg-primary-50' : 'text-gray-400 hover:bg-gray-50'}`}>Günün Esması</button>
-                 <button onClick={() => setActiveInfoTab('GOREV')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${activeInfoTab === 'GOREV' ? 'text-primary-600 bg-primary-50' : 'text-gray-400 hover:bg-gray-50'}`}>Günün Görevi</button>
+        {/* Daily Content Tabbed Card */}
+        <div className="glass-panel rounded-3xl overflow-hidden mt-4 bg-white/60">
+             <div className="flex border-b border-gray-100 p-1 gap-1 bg-white/50 backdrop-blur-sm">
+                 <button onClick={() => setActiveInfoTab('AYET')} className={`flex-1 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all ${activeInfoTab === 'AYET' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}>Günün Ayeti</button>
+                 <button onClick={() => setActiveInfoTab('ESMA')} className={`flex-1 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all ${activeInfoTab === 'ESMA' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}>Esma</button>
+                 <button onClick={() => setActiveInfoTab('GOREV')} className={`flex-1 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all ${activeInfoTab === 'GOREV' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}>Görev</button>
              </div>
              
-             <div className="p-6 min-h-[200px] flex flex-col justify-center">
+             <div className="p-8 min-h-[220px] flex flex-col justify-center">
                  {activeInfoTab === 'AYET' && (
                      <div className="animate-in fade-in slide-in-from-right-4 duration-300">
                          {isLoading ? (
-                             <div className="flex flex-col items-center gap-2 text-gray-400">
+                             <div className="flex flex-col items-center gap-3 text-gray-400">
                                  <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-                                 <span className="text-xs">Yükleniyor...</span>
+                                 <span className="text-xs font-medium">İçerik Yükleniyor...</span>
                              </div>
                          ) : dailyContent ? (
                              <>
-                                <div className="mb-4">
-                                    <MessageSquareQuote size={32} className="text-primary-200 mb-2"/>
-                                    <p className="text-lg font-serif text-gray-800 leading-relaxed">"{dailyContent.content}"</p>
-                                    <p className="text-sm text-primary-600 font-medium mt-3 text-right">— {dailyContent.source}</p>
+                                <div className="mb-6 relative pl-6">
+                                    <MessageSquareQuote size={32} className="text-primary-200 absolute -left-2 -top-2 opacity-50"/>
+                                    <p className="text-xl font-serif text-gray-800 leading-relaxed italic">{dailyContent.content}</p>
+                                    <div className="flex justify-end mt-4">
+                                        <p className="text-xs text-primary-600 font-bold uppercase tracking-widest border-t border-primary-100 pt-2 inline-block">
+                                            {dailyContent.source}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                                    <button onClick={handleSaveContent} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${isSaved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                                <div className="flex justify-end gap-3">
+                                    <button onClick={handleSaveContent} className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-colors ${isSaved ? 'bg-green-100 text-green-700' : 'bg-gray-50 border border-gray-100 text-gray-600 hover:bg-white'}`}>
                                         {isSaved ? <Check size={14}/> : <Bookmark size={14}/>} {isSaved ? 'Kaydedildi' : 'Kaydet'}
                                     </button>
-                                    <button onClick={handleShareContent} className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors">
+                                    <button onClick={handleShareContent} className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors">
                                         <Share2 size={14}/> Paylaş
                                     </button>
                                 </div>
@@ -826,40 +823,32 @@ const Home: React.FC<HomeProps> = ({ profile, changeTab, prayerTimes, locationEr
                  
                  {activeInfoTab === 'ESMA' && (
                      <div className="text-center animate-in fade-in slide-in-from-right-4 duration-300">
-                         <div className="w-16 h-16 mx-auto bg-gradient-to-tr from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center text-white shadow-lg mb-4 rotate-3">
-                             <Gem size={32}/>
+                         <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-300 to-amber-500 rounded-3xl flex items-center justify-center text-white shadow-lg mb-4 shadow-amber-200/50 rotate-3">
+                             <Star size={40} fill="white"/>
                          </div>
-                         <h3 className="text-3xl font-serif font-bold text-gray-800 mb-1">{dailyEsma.name}</h3>
-                         <p className="text-lg font-bold text-yellow-600 mb-3">{dailyEsma.transliteration}</p>
-                         <p className="text-sm text-gray-600 leading-relaxed max-w-xs mx-auto">{dailyEsma.meaning}</p>
+                         <h3 className="text-4xl font-serif font-bold text-gray-900 mb-2">{dailyEsma.name}</h3>
+                         <p className="text-sm font-bold text-amber-600 mb-3 uppercase tracking-wider">{dailyEsma.transliteration}</p>
+                         <p className="text-sm text-gray-600 leading-relaxed max-w-xs mx-auto px-4">{dailyEsma.meaning}</p>
                      </div>
                  )}
                  
                  {activeInfoTab === 'GOREV' && (
                      <div className="text-center animate-in fade-in slide-in-from-right-4 duration-300">
-                         <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 transition-all duration-500 ${missionCompleted ? 'bg-green-100 text-green-600 scale-110' : 'bg-gray-100 text-gray-400'}`}>
+                         <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 transition-all duration-500 ${missionCompleted ? 'bg-green-100 text-green-600 scale-110 shadow-inner' : 'bg-gray-100 text-gray-400'}`}>
                              {missionCompleted ? <Star size={32} fill="currentColor"/> : <HandHeart size={32}/>}
                          </div>
-                         <h3 className="text-lg font-bold text-gray-800 mb-2">Günün İyilik Görevi</h3>
-                         <p className="text-gray-600 mb-6 px-4">{dailyMission}</p>
+                         <h3 className="text-lg font-bold text-gray-800 mb-2">Günün İyiliği</h3>
+                         <p className="text-base text-gray-600 mb-8 px-4 leading-relaxed font-serif italic">"{dailyMission}"</p>
                          <button 
                             onClick={handleToggleMission}
-                            className={`w-full py-3 rounded-xl font-bold transition-all active:scale-95 ${missionCompleted ? 'bg-green-500 text-white shadow-lg shadow-green-200' : 'bg-gray-900 text-white shadow-lg'}`}
+                            className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-lg ${missionCompleted ? 'bg-green-500 text-white shadow-green-200' : 'bg-gray-900 text-white shadow-gray-300 hover:bg-gray-800'}`}
                          >
-                             {missionCompleted ? 'Harikasın! Görev Tamamlandı' : 'Görevi Tamamladım'}
+                             {missionCompleted ? 'Tamamlandı' : 'Görevi Tamamladım'}
                          </button>
                      </div>
                  )}
              </div>
         </div>
-
-        {/* Location Error */}
-        {locationError && (
-          <div className="p-4 bg-red-50 text-red-600 text-sm rounded-2xl border border-red-100 flex items-center gap-3">
-             <CloudRain size={20}/>
-             <p>{locationError}</p>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -72,6 +72,44 @@ export const duaCategories: DuaCategory[] = [
     ]
   },
   {
+    id: 'knowledge_learning',
+    name: 'Öğrenme ve Bilgi',
+    duas: [
+      {
+        id: 'increase_knowledge_taha',
+        title: 'İlmi Artırma Duası',
+        arabic: 'رَّبِّ زِدْنِي عِلْمًا',
+        transliteration: "Rabbi zidnî ilmâ.",
+        meaning: "Rabbim! İlmimi artır.",
+        virtue: "Allah'tan ilim istemek, Kur'an'da Peygamberimize (s.a.v) emredilen en temel dualardan biridir. (Tâhâ Suresi, 114. Ayet)"
+      },
+      {
+        id: 'wisdom_request',
+        title: 'Hikmet İsteme Duası',
+        arabic: 'رَبِّ هَبْ لِي حُكْمًا وَأَلْحِقْنِي بِالصَّالِحِينَ',
+        transliteration: "Rabbi heb lî hukmen ve elhıknî bis sâlihîn.",
+        meaning: "Rabbim! Bana hikmet (hüküm, anlayış) ver ve beni salihler arasına kat.",
+        virtue: "Hz. İbrahim'in bu duası, sadece kuru bilgi değil, o bilgiyi doğru kullanma yeteneği olan 'hikmet'i istemek içindir. (Şuarâ Suresi, 83. Ayet)"
+      },
+      {
+        id: 'angels_knowledge',
+        title: 'Acziyet ve İlim',
+        arabic: 'سُبْحَانَكَ لَا عِلْمَ لَنَا إِلَّا مَا عَلَّمْتَنَا ۖ إِنَّكَ أَنتَ الْعَلِيمُ الْحَكِيمُ',
+        transliteration: "Subhâneke lâ ilme lenâ illâ mâ allemtenâ inneke entel alîmul hakîm.",
+        meaning: "Seni tenzih ederiz! Senin bize öğrettiğinden başka bizim hiçbir bilgimiz yoktur. Şüphesiz sen her şeyi hakkıyla bilensin, hüküm ve hikmet sahibisin.",
+        virtue: "Meleklerin ilahi ilim karşısındaki teslimiyetini ifade eden bu ayet, öğrenmeye başlarken tevazu göstermek ve Allah'ın yardımını istemek için okunur. (Bakara Suresi, 32. Ayet)"
+      },
+      {
+         id: 'speech_clarity_knowledge',
+         title: 'Zihin Açıklığı ve Etkili Konuşma',
+         arabic: 'رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي وَاحْلُلْ عُقْدَةً مِّن لِّسَانِي يَفْقَهُوا قَوْلِي',
+         transliteration: "Rabbişrah lî sadrî ve yessir lî emrî vahlul ukdeten min lisânî yefkahû kavlî.",
+         meaning: "Rabbim! Gönlüme ferahlık ver. İşimi bana kolaylaştır. Dilimdeki tutukluğu çöz ki sözümü anlasınlar.",
+         virtue: "Ders çalışırken, sınava girerken veya bir sunum yaparken zihnin açılması ve ifadenin güçlenmesi için Hz. Musa'nın bu duası çok etkilidir. (Tâhâ Suresi, 25-28. Ayetler)"
+      }
+    ]
+  },
+  {
     id: 'quranic_life',
     name: 'Hayat İçin Kur\'an\'i Dualar',
     duas: [
@@ -106,14 +144,6 @@ export const duaCategories: DuaCategory[] = [
         transliteration: "Rabbenâ lâ tuâhıznâ in nesînâ ev ahta\'nâ, Rabbenâ ve lâ tahmil aleynâ ısran kemâ hameltehu alellezîne min kablinâ...",
         meaning: "Rabbimiz! Unutur veya yanılırsak bizi sorumlu tutma. Rabbimiz! Bizden öncekilere yüklediğin gibi bize de ağır bir yük yükleme...",
         virtue: 'Amenerrasulü olarak bilinen Bakara son iki ayet, müminin acizliğini itirafı ve Allah\'ın rahmetine sığınışıdır. (Bakara Suresi, 286. Ayet)'
-      },
-       {
-        id: 'knowledge',
-        title: 'İlim İsteme Duası',
-        arabic: 'رَّبِّ زِدْنِي عِلْمًا',
-        transliteration: "Rabbi zidnî ilmâ.",
-        meaning: "Rabbim! İlmimi artır.",
-        virtue: 'Sürekli öğrenme ve gelişme arzusunun Kur\'an\'daki ifadesidir. (Tâhâ Suresi, 114. Ayet)'
       },
       {
         id: 'parents_mercy',

@@ -186,3 +186,12 @@ export interface DuaCategory {
   name: string;
   duas: Dua[];
 }
+
+// Location Types
+export interface LocationConfig {
+  type: 'GPS' | 'MANUAL';
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  country?: string;
+}

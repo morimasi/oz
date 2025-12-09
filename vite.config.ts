@@ -7,9 +7,14 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, (process as any).cwd(), '');
   return {
     plugins: [react()],
+    base: './', // Capacitor ve mobil dağıtım için gerekli
     define: {
       // Kodunuzdaki process.env.API_KEY kullanımını desteklemek için
       'process.env.API_KEY': JSON.stringify(env.API_KEY)
+    },
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
     }
   }
 })
